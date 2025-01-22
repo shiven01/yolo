@@ -1,30 +1,34 @@
-from ultralytics import YOLO
 import cv2
+import numpy as np
+from ultralytics import YOLO 
+import mediapipe as mp
 
-#Loading them odel
 model = YOLO('yolov8s.pt')
 
-img = cv2.imread('people.jpg')
-results = model(img)[0]
+# Initialize Mediapipe Hand Detection
+mp_hands = mp.solutions.hands
+hands = mp_hands.Hands(min_detection_confidence=0.7)
+mp_draw = mp.solutions.drawing_utils
 
-results.save(filename='output.jpg')
+# Webcam input
+cap = cv2.VideoCapture(0)
 
-plotted_img = results.plot()
-cv2.imwrite('output.jpg', plotted_img)
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        break
 
-for result in results.boxes.data.tolist():
-    x1, y1, x2, y2, score, class_id = result
-    class_name = results.names[int(class_id)]
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = hands.process(frame_rgb)
 
-    cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0), 4)
-    cv2.putText(img, f'{class_name} {score:.2f}', (int(x1), int(y1)), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 0), 3)    
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            mp_draw.draw_landmarks(frame, hand_landmarks,
+                                   mp_hands.HAND_CONNECTIONS)
 
-newimg = results[0].plot()
+    cv2.imshow("Hand Skeleton Tracking", frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
-cv2.imshow('image', newimg)
-cv2.waitKey(0)
-
-cv2.imwrite('output.jpg', newimg)
-
-if cv2.waitKey(1) & 0xFF == ord('q'):
-    cv2.destroyAllWindows()
+cap.release()
+cv2.destroyAllWindows()
